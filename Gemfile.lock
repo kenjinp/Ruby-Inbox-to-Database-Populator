@@ -1,0 +1,21 @@
+GEM
+  specs:
+    mail (2.6.3)
+      mime-types (>= 1.16, < 3)
+    mime (0.4.2)
+    mime-types (2.4.3)
+    mini_portile (0.6.1)
+    nokogiri (1.6.5)
+      mini_portile (~> 0.6.0)
+    ruby-gmail (0.3.1)
+      mail (>= 2.2.1)
+      mime (>= 0.1)
+      shared-mime-info
+    shared-mime-info (0.2.5)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  nokogiri
+  ruby-gmail
