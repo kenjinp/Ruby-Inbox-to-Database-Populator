@@ -3,6 +3,7 @@ require 'yaml'
 require 'nokogiri'
 
 def readConfig
+  #return a hash or something
   config = YAML.load_file("config.yaml")
   @username = config["config"]["username"]
   @password = config["config"]["password"]
@@ -18,7 +19,10 @@ def parser(email)
   #read the text associated with the bold text in an email
   def textAtNode(node, number)
     #text may not be incoded correctly, may try to .force_encoding in the future
-    return node.css('b')[number].next.next.text.to_s.gsub("=\n", '').gsub("=0A", '')
+    mytext = node.css('b')[number].next.next.text.to_s.gsub("=\n", '').gsub("=0A", '')
+    #
+    mytext = (mytext.blank? ? nil : mytext)
+    #
   end
 
   #this is the only exceptional peice of data that must be treated with special cases
@@ -26,32 +30,27 @@ def parser(email)
     # if they chose to upload their own file, use the link
     image = textAtNode(table, 6)
     # if they didn't upload an image so there is no link, choose a default for them
-    image = (image === '' ? 'Free Energy' : image)
+    image = (image.blank? ? 'Free Energy' : image)
   else
     #otherwise they must have chosen a default image, so just use that text
     image = textAtNode(table, 5)
   end
 
   email_data = {
-    'name' => textAtNode(table, 0),
-    'title' => textAtNode(table, 1),
-    'cell' => textAtNode(table, 2),
-    'customer_email' => textAtNode(table, 3),
-    'ambit_handle' => textAtNode(table, 4),
-    'image' => image,
-    'alternate_video' => textAtNode(table, 7),
-    'alternate_keyword' => textAtNode(table, 8),
-    'alternate_web' => textAtNode(table, 9),
-    'coupon_code' => textAtNode(table, 10),
-    'referral' => textAtNode(table, 11)
+    name: textAtNode(table, 0),
+    title: textAtNode(table, 1),
+    cell: textAtNode(table, 2),
+    customer_email: textAtNode(table, 3),
+    ambit_handle: textAtNode(table, 4),
+    image: image,
+    alternate_video: textAtNode(table, 7),
+    alternate_keyword: textAtNode(table, 8),
+    alternate_web: textAtNode(table, 9),
+    coupon_code: textAtNode(table, 10),
+    referral: textAtNode(table, 11)
   }
 
-  email_data.each do |item, data|
-    #convert empty strings to nil
-    data = (data.empty? ? nil : data)
-  end
-
-  return email_data
+  email_data
 
 end #end parser
 
@@ -63,7 +62,7 @@ def getEmails
     Gmail.new(@username, @password) do |gmail|
         puts 'connection established'
         #use peek to make emails not be automatically marked as read
-        gmail.peek = (@peek === 'true' ? true : false)
+        gmail.peek = (@peek == 'true' ? true : false)
 
         if @label == "none"
           inbox = gmail.inbox
