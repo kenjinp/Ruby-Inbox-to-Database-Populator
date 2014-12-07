@@ -1,19 +1,25 @@
 require 'gmail'
 require 'yaml'
 require 'nokogiri'
+require "active_record"
 
 def readConfig
   #return a hash or something
-  config = YAML.load_file("config.yaml")
+  config = YAML.load_file("config.yaml")["config"]
+end
 
-  config_arr = {
-    username: config["config"]["username"],
-    password: config["config"]["password"],
-    label: config["config"]["label"],
-    peek: config["config"]["peek"]
-  }
+config = readConfig
 
-  config_arr
+ActiveRecord::Base.establish_connection(
+  environment: config["database"]["environment"],
+  adapter: config["database"]["adapter"],
+  encoding: config["database"]["encoding"],
+  database: config["database"]["database"],
+#  username: config["database"]["username"],
+#  password: config["database"]["password"]
+)
+
+class Order < ActiveRecord::Base
 end
 
 def parser(email)
@@ -41,18 +47,59 @@ def parser(email)
     image = textAtNode(table, 5)
   end
 
+  def video_url( handle )
+    "#{handle}.energy526.com"
+  end
+
+  def website( handle )
+    "#{handle}.myambit.com"
+  end
+
+  def check_rates_url( handle )
+    "#{handle}.myambit.com/rates-and-plans"
+  end
+
+  def get_more_info_url( handle )
+    "#{handle}.myambit.com/get-more-info"
+  end
+
+  def handleizer( raw_handle )
+    raw_handle.split().first
+  end
+
+  name = textAtNode(table, 0)
+  title = textAtNode(table, 1)
+  cell_number = textAtNode(table, 2)
+  email = textAtNode(table, 3)
+  ambit_handle = handleizer( textAtNode(table, 4) )
+  alternate_video_url = textAtNode(table, 7)
+  video_url = alternate_video_url ? nil : video_url( ambit_handle )
+  alternate_keyword = textAtNode(table, 8)
+  alternate_web = textAtNode(table, 9)
+  coupon_code = textAtNode(table, 10)
+  referral = textAtNode(table, 11)
+  pic_url = image
+  website =  alternate_web ? nil : website( ambit_handle )
+  check_rates_url =  check_rates_url( ambit_handle )
+  get_more_info_url = get_more_info_url( ambit_handle )
+
   email_data = {
-    name: textAtNode(table, 0),
-    title: textAtNode(table, 1),
-    cell: textAtNode(table, 2),
-    customer_email: textAtNode(table, 3),
-    ambit_handle: textAtNode(table, 4),
-    image: image,
-    alternate_video: textAtNode(table, 7),
+    name: name,
+    title: title,
+    cell_number: cell_number,
+    email: email,
+    ambit_handle: ambit_handle,
+    alternate_video_url: alternate_video_url,
+    video_url: textAtNode(table, 7) ? nil : video_url( textAtNode(table, 4) ),
     alternate_keyword: textAtNode(table, 8),
     alternate_web: textAtNode(table, 9),
     coupon_code: textAtNode(table, 10),
-    referral: textAtNode(table, 11)
+    referral: textAtNode(table, 11),
+    pic_url: image,
+    website: textAtNode(table, 9) ? nil : website( textAtNode(table, 4) ),
+    check_rates_url: check_rates_url( textAtNode(table, 4) ),
+    get_more_info_url: get_more_info_url( textAtNode(table, 4) ),
+    email_to_client_sent: false
   }
 
   email_data
@@ -61,42 +108,41 @@ end #end parser
 
 #set up gmail connection, preforms something on each unread email,
 #set peek to true if you don't want to automatically mark it as read
-def getEmails
+def getEmails( config )
 
-  username = readConfig[:username]
-  password = readConfig[:password]
-  label = readConfig[:label]
-  peek = readConfig[:peek]
+  username = config["username"]
+  password = config["password"]
+  label = config["label"]
+  peek = config["peek"]
 
 
   begin
     puts 'attempting to connect to ' + username + '@gmail.com'
-    Gmail.new(username, password) do |gmail|
-        puts 'connection established'
-        #use peek to make emails not be automatically marked as read
-        gmail.peek = (peek == 'true' ? true : false)
+    gmail = Gmail.new(username, password)
+    puts 'connection established'
+    #use peek to make emails not be automatically marked as read
+    gmail.peek = (peek == 'true' ? true : false)
 
-        if label == "none"
-          inbox = gmail.inbox
-          boxname = 'inbox'
-        else
-          inbox = gmail.mailbox(label)
-          boxname = label + ' box'
-        end
-        number_unread = inbox.count(:unread)
-        if number_unread < 1
-          abort("There are no new messages in the " + boxname)
-        end
-        p "there are " + number_unread.to_s + " unread emails in the " + boxname
-        inbox.emails(:unread).each do |email|
-          puts parser(email)
-        end
+    if label == "none"
+      inbox = gmail.inbox
+      boxname = 'inbox'
+    else
+      inbox = gmail.mailbox(label)
+      boxname = label + ' box'
     end
+    number_unread = inbox.count(:unread)
+    if number_unread < 1
+      abort("There are no new messages in the " + boxname)
+    end
+    p "there are " + number_unread.to_s + " unread emails in the " + boxname
+    emails = inbox.emails(:unread).map { |email| parser(email) }
 
   rescue Net::IMAP::NoResponseError
     puts 'connection failed, check your config file for incorrect credentials'
     puts 'perhaps you opted to use a label that doesn\'t exist, try "none" instead'
+    []
   end
 end
+emails = getEmails( config )
+emails.each { |email| Order.find_or_create_by!( email ) }
 
-getEmails
