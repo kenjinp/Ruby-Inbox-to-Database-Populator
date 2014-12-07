@@ -5,10 +5,15 @@ require 'nokogiri'
 def readConfig
   #return a hash or something
   config = YAML.load_file("config.yaml")
-  @username = config["config"]["username"]
-  @password = config["config"]["password"]
-  @label = config["config"]["label"]
-  @peek = config["config"]["peek"]
+
+  config_arr = {
+    username: config["config"]["username"],
+    password: config["config"]["password"],
+    label: config["config"]["label"],
+    peek: config["config"]["peek"]
+  }
+
+  config_arr
 end
 
 def parser(email)
@@ -57,19 +62,26 @@ end #end parser
 #set up gmail connection, preforms something on each unread email,
 #set peek to true if you don't want to automatically mark it as read
 def getEmails
+
+  username = readConfig[:username]
+  password = readConfig[:password]
+  label = readConfig[:label]
+  peek = readConfig[:peek]
+
+
   begin
-    puts 'attempting to connect to ' + @username + '@gmail.com'
-    Gmail.new(@username, @password) do |gmail|
+    puts 'attempting to connect to ' + username + '@gmail.com'
+    Gmail.new(username, password) do |gmail|
         puts 'connection established'
         #use peek to make emails not be automatically marked as read
-        gmail.peek = (@peek == 'true' ? true : false)
+        gmail.peek = (peek == 'true' ? true : false)
 
-        if @label == "none"
+        if label == "none"
           inbox = gmail.inbox
           boxname = 'inbox'
         else
-          inbox = gmail.mailbox(@label)
-          boxname = @label + ' box'
+          inbox = gmail.mailbox(label)
+          boxname = label + ' box'
         end
         number_unread = inbox.count(:unread)
         if number_unread < 1
@@ -87,5 +99,4 @@ def getEmails
   end
 end
 
-readConfig
 getEmails
