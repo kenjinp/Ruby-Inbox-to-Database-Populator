@@ -69,7 +69,7 @@ def parser(email)
 
   name = textAtNode(table, 0)
   title = textAtNode(table, 1)
-  cell_number = textAtNode(table, 2)
+  cell_number = textAtNode(table, 2).gsub("-","").gsub(" ","").gsub("(","").gsub(")","")
   email = textAtNode(table, 3)
   ambit_handle = handleizer( textAtNode(table, 4) )
   alternate_video_url = textAtNode(table, 7)
